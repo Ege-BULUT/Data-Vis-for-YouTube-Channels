@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 import mpld3
+
 #
 # TODO: https://www.youtube.com/c/LordPac/videos
 #     .  3 adet grafik oluşturulacak
@@ -53,7 +54,7 @@ durationsSec = []
 async def root():
     return {"message": "Hello World"}
 
- 
+
 @app.get("/close", response_class=HTMLResponse)
 async def close_browser():
     browser.close()
@@ -84,7 +85,7 @@ async def say_hello(name: str):
 async def seleniumFun():
     global videos
     global channelName
-    if len(channelName) < 2:
+    if len(channelName) < 1:
         link = "https://www.youtube.com/c/LordPac/videos"
         browser.get(link)
         time.sleep(2)
@@ -95,6 +96,10 @@ async def seleniumFun():
     global titles
     global durationsText  # hh:mm:ss
     global durationsSec  # seconds
+    views = []
+    titles = []
+    durationsText = []
+    durationsSec = []
 
     titlesText = ""
 
@@ -111,26 +116,34 @@ async def seleniumFun():
             number = view.text.split(" ")[0]
             if PCLanguage == "tr":
                 if view.text.split(" ")[1][0] == 'B':
-                    if "." in number:
-                        number = (int(number.split(".")[0])*10)+int(number.split(".")[1])
-                    text = str(number * 1000)
-                elif view.text.split(" ")[1][0] == 'M':
+                    multipler = 1000
                     if "." in number:
                         number = (int(number.split(".")[0]) * 10) + int(number.split(".")[1])
-                    text = str(number * 1000000)
+                        multipler = 100
+                    text = str((int(number) * multipler))
+                elif view.text.split(" ")[1][0] == 'M':
+                    multipler = 1000000
+                    if "." in number:
+                        number = (int(number.split(".")[0]) * 10) + int(number.split(".")[1])
+                        multipler = 100000
+                    text = str((int(number) * multipler))
                 else:
                     text = number
 
             elif PCLanguage == "en":
                 number = view.text.split(" ")[0][0:-1]
                 if view.text.split(" ")[0][-1] == 'K':
+                    multipler = 1000
                     if "." in number:
                         number = (int(number.split(".")[0]) * 10) + int(number.split(".")[1])
-                    text = str(number * 1000)
+                        multipler = 100
+                    text = str((int(number) * multipler))
                 elif view.text.split(" ")[0][-1] == 'M':
+                    multipler = 1000000
                     if "." in number:
                         number = (int(number.split(".")[0]) * 10) + int(number.split(".")[1])
-                    text = str(number * 1000000)
+                        multipler = 100000
+                    text = str((int(number) * multipler))
                 else:
                     text = view.text.split(" ")[0]
 
@@ -163,7 +176,7 @@ async def seleniumFun():
                         "<div>" + durationsText[i] + "</div>\n" \
                                                      "</li>\n"
 
-        #print(str(i + 1) + ". : " + titles[i] + "\n" + str(views[i]) + " Görüntülenme \t | (" + durationsText[i] + ")")
+        # print(str(i + 1) + ". : " + titles[i] + "\n" + str(views[i]) + " Görüntülenme \t | (" + durationsText[i] + ")")
 
     HTMLpart = HTMLpart + '<li class="list-item"><div>______</div><div>_________________</div><div>____</div></li>'
 
@@ -175,6 +188,8 @@ async def seleniumFun():
         sum(durationsSec)) + " Saniye)</div>\n" \
                              "</li>\n"
 
+    score = '{0:,.3f}'.format(sum(views) / sum(durationsSec))
+    HTMLpart = HTMLpart + "<h2>Channel Score (Views/Seconds) = [" + score + "] !</h2> "
     print("\n\nTest : " + HTMLpart + "\n\n")
 
     return """
@@ -208,7 +223,7 @@ async def selenium(ytchannel_name):
     return RedirectResponse("/selenium")
 
 
-@app.get("/selenium/plot/{plot}")
+@app.get("/plot/{plot}")
 async def create_plot(plot: str):
     # Select a subset of the networks
 
@@ -218,21 +233,19 @@ async def create_plot(plot: str):
     g = plt.figure()
     if plot == "view-duration":
         plot = sns.scatterplot(x=durationsSec, y=views)
-        plot.set(title='Views - Durations(sec)')
+        plot.set(title='Views - Durations(sec)', xlabel='duration (Sec)', ylabel='view')
         fig = plot.get_figure()
 
-
-
-        #with io.BytesIO() as g_bytes:
+        # with io.BytesIO() as g_bytes:
         #    plt.savefig(g_bytes, format='png')
         #    g_bytes.seek(0)
         #    response = Response(g_bytes.getvalue(), media_type='image/png')
-        #return response
+        # return response
         return HTMLResponse(mpld3.fig_to_html(fig))
 
     elif plot == "view-titlelength":
         titleLengths = []
-        for title in titles :
+        for title in titles:
             titleLengths.append(len(title))
 
         g = sns.scatterplot(x=titleLengths, y=views).set(title='Views - title lengths')
@@ -261,10 +274,7 @@ async def create_plot(plot: str):
                     </body>
                 </html>
                     """
-        return HTMLResponse(htmlresp,200)
-
-
-
+        return HTMLResponse(htmlresp, 200)
 
 
 def secToTime(seconds):
